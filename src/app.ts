@@ -1,5 +1,5 @@
 import { findXML } from './xmlutils';
-import createTopLevel, { TopLevel } from './ipxact';
+import createTopLevel, { Catalog, TopLevel } from './ipxact';
 
 
 
@@ -11,13 +11,28 @@ import createTopLevel, { TopLevel } from './ipxact';
 var data_dir = "data"
 
 var xmls = findXML(data_dir, true);
-var ips = [ ] as {path: string, toplevel: TopLevel}[]
+var ips = [] as TopLevel[];
 
 for (let xml of xmls) {
-    ips.push({path: xml.path, toplevel: createTopLevel(xml.el)});
+    var toplevel = TopLevel.fromXMLElement(xml.el);
+    toplevel.fileref = xml.path;
+    ips.push(toplevel);
+
+    //console.log(toplevel);
 }
 
+var cat = new Catalog('simonemeyere', 'cats', 'mycatalog', '1.0');
+
+//console.log(cat);
 
 for (let ip of ips) {
-    console.log(`[${ip.toplevel.ipxacttype}] ${ip.toplevel.VLNV()} at ${ip.path}`);
+    cat.addIP(ip);
 }
+
+//console.log(cat);
+
+for (let ip of ips) {
+    console.log(ip);
+}
+
+console.log(cat.XMLElement().serialize());

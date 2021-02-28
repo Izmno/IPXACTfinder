@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import convert from 'xml-js';
 
+import {newline, indentString, prepareXMLText} from './stringutils';
+
 function splitNameSpace(tag: string): {tag: string, namespace?:string} {
     var splits = tag.split(':');        
     if (splits.length > 1) {
@@ -9,6 +11,10 @@ function splitNameSpace(tag: string): {tag: string, namespace?:string} {
     } else {
         return {tag: splits[1] };
     }
+}
+
+function joinNameSpace(tag: string, namespace?: string) {
+    return `${namespace? `${namespace}:`: ''}${tag}`;
 }
 
 export class XMLAttribute {
@@ -22,6 +28,10 @@ export class XMLAttribute {
         this.value = value;
         this.namespace = namespace; 
     }
+
+    serialize(): string {
+        return `${joinNameSpace(this.key, this.namespace)}${this.value ? `="${this.value}"` : ''} `;
+    }
 }
 
 export class XMLElement {
@@ -33,6 +43,7 @@ export class XMLElement {
     
     constructor(tag: string, namespace?: string) {
         this.tag = tag;
+        this.namespace = namespace;
     } 
 
     static fromObject(key: string, obj: Object): XMLElement {
@@ -82,6 +93,73 @@ export class XMLElement {
             }
         }
         throw new Error("Key not found: " + key);
+    }
+
+
+
+    /**
+     * Serializing methods
+     * @param indent 
+     * @param notfirst 
+     * @param appendTo 
+     */
+    public serialize(indent?: number, notfirst?: boolean, appendTo?: string) : string {
+        var s = appendTo || '';
+
+        var attstring = this.attributes.length > 0 ? ' ' : '';
+        for (let att of this.attributes) {
+            attstring += att.serialize();
+        }
+
+        var initialIndent = indent || 0;
+        if (notfirst) {
+            s = newline(s, initialIndent);
+        } else {
+            s = indentString(s, initialIndent);
+        }
+
+        if (this.children.length > 0) {
+            s += this.xmlOpen();
+            for (let child of this.children) {
+                s = child.serialize(initialIndent + 4, true, s);
+            }
+            s = newline(s, initialIndent);
+            s += this.xmlClose();
+        } else if (this.text) {
+            s += this.xmlOpen();
+            s += prepareXMLText(this.text, initialIndent + 4);
+            s += this.xmlClose();
+        } else {
+            s += this.xmlOpenClose();
+        }
+        return s;
+    }
+
+    private attString(): string {
+        var attstring = this.attributes.length > 0 ? ' ' : '';
+        for (let att of this.attributes) {
+            attstring += att.serialize();
+        }
+        return attstring;
+    }
+
+    private xmlOpen(): string {
+        return this.xmlGeneric(true, false, false)
+    }
+
+    private xmlClose(): string {
+        return this.xmlGeneric(false, true, false);
+    }
+
+    private xmlOpenClose(): string {
+        return this.xmlGeneric(true, false, true);
+    }
+
+    private xmlGeneric(includeAttributes: boolean, slashOpen: boolean, slashClose: boolean): string {
+        return (slashOpen? '</' : '<') +  
+            (joinNameSpace(this.tag, this.namespace)) +  
+            (includeAttributes? this.attString() : '') + 
+            (slashClose? '/>' : '>')
     }
 }
 
